@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情侣飞行棋</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #2a0f18;
+  min-height: 100vh;
+  font-family: 'Noto Serif SC', Georgia, serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  color: #fff8f0;
+}
+
+h1 {
+  color: #e8c97a;
+  font-size: 1.8rem;
+  text-align: center;
+  margin-bottom: 4px;
+  letter-spacing: 4px;
+}
+
+.sub {
+  color: #f4a0b0;
+  font-size: 0.72rem;
+  margin-bottom: 14px;
+  letter-spacing: 2px;
+}
+
+/* 图例 */
+.legend {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.68rem;
+  color: #fff8f0;
+}
+.ld { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 3px; vertical-align: middle; }
+
+/* 骰子区 */
+.dice-area {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+  justify-content: center;
+}
+
+.pcard {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(244,160,176,0.3);
+  border-radius: 12px;
+  padding: 10px 16px;
+  text-align: center;
+  min-width: 100px;
+}
+.pcard .em { font-size: 1.6rem; }
+.pcard .nm { color: #e8c97a; font-size: 0.82rem; margin: 2px 0; }
+.pcard .ps { font-size: 1.1rem; font-weight: bold; }
+
+.dc {
+  text-align: center;
+}
+.turn-lbl { color: #f4a0b0; font-size: 0.75rem; margin-bottom: 6px; }
+
+.dbtn {
+  width: 66px; height: 66px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c0607a, #f4a0b0);
+  border: none;
+  font-size: 1.9rem;
+  cursor: pointer;
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(192,96,122,0.5);
+  display: block;
+  margin: 0 auto;
+}
+.dbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.dresult { color: #e8c97a; font-size: 1.3rem; margin-top: 4px; min-height: 1.6rem; text-align: center; }
+
+/* 棋盘 — 纯线性蛇形，每行7个 */
+.board {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 14px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 14px;
+  padding: 8px;
+  border: 1px solid rgba(244,160,176,0.18);
+}
+
+.brow {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 3px;
+}
+
+.bcell {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  position: relative;
+  color: #1a0a10;
+  font-weight: bold;
+}
+
+.bcell.t-start  { background: #e8c97a; }
+.bcell.t-finish { background: #e8c97a; }
+.bcell.t-reward { background: #a8d8a8; }
+.bcell.t-task   { background: #a8c8f0; }
+.bcell.t-punish { background: #f0a8a8; }
+.bcell.t-conn   { background: rgba(255,255,255,0.07); }
+
+.bcell .cidx {
+  font-size: 0.42rem;
+  opacity: 0.55;
+  position: absolute;
+  top: 2px; left: 3px;
+  color: #333;
+}
+.bcell .cico { font-size: 0.9rem; }
+.bcell .cpawn {
+  position: absolute;
+  bottom: 1px; right: 2px;
+  font-size: 0.72rem;
+}
+
+/* 日志 */
+.log {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244,160,176,0.13);
+  max-height: 100px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+.log-title { color: #e8c97a; font-size: 0.72rem; margin-bottom: 5px; }
+.log-item { color: #f4a0b0; font-size: 0.68rem; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+.rbtn {
+  background: transparent;
+  border: 1px solid #f4a0b0;
+  border-radius: 20px;
+  padding: 6px 22px;
+  color: #f4a0b0;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* 弹窗 */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 99;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.overlay.on { display: flex; }
+
+.mbox {
+  background: #200c14;
+  border-radius: 18px;
+  padding: 26px 22px;
+  max-width: 290px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid #f4a0b0;
+  box-shadow: 0 0 36px rgba(244,160,176,0.28);
+}
+
+.mbadge {
+  font-size: 0.72rem;
+  padding: 3px 12px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+  font-weight: bold;
+}
+.r .mbadge { background: #a8d8a8; color: #1a4a1a; }
+.t .mbadge { background: #a8c8f0; color: #1a2a4a; }
+.p .mbadge { background: #f0a8a8; color: #4a1a1a; }
+.w .mbadge { background: #e8c97a; color: #3a2000; }
+
+.mico { font-size: 2.6rem; margin-bottom: 8px; }
+.mwho { color: #e8c97a; font-size: 0.8rem; margin-bottom: 6px; }
+.mtxt { color: #fff8f0; font-size: 0.92rem; line-height: 1.65; margin-bottom: 18px; }
+
+.mokbtn {
+  background: linear-gradient(135deg, #c0607a, #f4a0b0);
+  border: none;
+  border-radius: 22px;
+  padding: 9px 28px;
+  color: #fff;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>🎲 情侣飞行棋</h1>
+<p class="sub">落子无悔 · 认罚认赏</p>
+
+<div class="legend">
+  <span><span class="ld" style="background:#a8d8a8"></span>奖励</span>
+  <span><span class="ld" style="background:#a8c8f0"></span>任务</span>
+  <span><span class="ld" style="background:#f0a8a8"></span>惩罚</span>
+  <span>🐰宝宝 &nbsp; 🐺老公</span>
+</div>
+
+<div class="dice-area">
+  <div class="pcard">
+    <div class="em">🐰</div>
+    <div class="nm">宝宝</div>
+    <div class="ps">第<span id="pp1">0</span>格</div>
+  </div>
+  <div class="dc">
+    <div class="turn-lbl" id="tlbl">🐰 宝宝先走</div>
+    <button class="dbtn" id="dbtn" onclick="roll()">🎲</button>
+    <div class="dresult" id="dres"></div>
+  </div>
+  <div class="pcard">
+    <div class="em">🐺</div>
+    <div class="nm">老公</div>
+    <div class="ps">第<span id="pp2">0</span>格</div>
+  </div>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="log">
+  <div class="log-title">📜 记录</div>
+  <div id="loglist"></div>
+</div>
+
+<button class="rbtn" onclick="restart()">🔄 重新开始</button>
+
+<div class="overlay" id="overlay">
+  <div class="mbox" id="mbox">
+    <div class="mbadge" id="mbadge"></div>
+    <div class="mico" id="mico"></div>
+    <div class="mwho" id="mwho"></div>
+    <div class="mtxt" id="mtxt"></div>
+    <button class="mokbtn" id="mokbtn" onclick="closeModal()">收到！</button>
+  </div>
+</div>
+
+<script>
+// 路径定义：28格，每格类型
+// s=start f=finish r=reward t=task p=punish
+var PATH = [
+  's','r','t','p','r','t','p',  // row0: 0-6, L->R
+  'r',                           // row1右: 7
+  'p','t','r','p','t','r','t',  // row2: 8-14, R->L
+  'p',                           // row3左: 15
+  'r','t','p','r','t','p','f',  // row4: 16-22, L->R
+];
+
+var N = PATH.length - 1; // 22 = 终点index
+
+var REWARDS = [
+  "对方今天什么都听你的 🥰",
+  "对方要抱你五分钟不许动 💕",
+  "让对方亲你指定的一个地方 😘",
+  "让对方夸你三句，不许敷衍",
+  "点一个小愿望，对方必须满足",
+  "对方给你按摩十分钟",
+  "让对方说一句你最想听的话",
+];
+var TASKS = [
+  "盯着对方眼睛说「我喜欢你」，不许笑 👀",
+  "用嘴喂对方吃一口东西",
+  "让对方坐你腿上待满一分钟",
+  "互相凑耳边说一句悄悄话",
+  "对方让你摆什么pose就摆什么",
+  "两人贴脸自拍一张",
+];
+var PUNISH = [
+  "全程不许叫出声，叫了重来 🤐",
+  "手被压住不许动，求了才松",
+  "被要求开口说想要什么，说清楚才给",
+  "对方做什么都不许躲，躲了加时",
+  "被蒙眼，对方做什么都要接受",
+  "哭了也不停，撑到对方说够",
+  "任由对方亲三分钟不许躲",
+  "对方说什么就做什么，持续十分钟",
+  "不许穿上衣待五分钟",
+];
+
+var p1=0, p2=0, whose=0; // 0=宝宝 1=老公
+
+// 棋盘布局：每行7格，用null表示空格（连接格）
+// 路径格用其在PATH中的index
+// row0: path[0..6] L->R
+// row1: [null,null,null,null,null,null, path[7]]
+// row2: [path[14],path[13],path[12],path[11],path[10],path[9],path[8]] （显示R->L）
+// row3: [path[15], null,null,null,null,null,null]
+// row4: path[16..22] L->R
+var LAYOUT = [
+  [0,1,2,3,4,5,6],
+  [null,null,null,null,null,null,7],
+  [14,13,12,11,10,9,8],
+  [15,null,null,null,null,null,null],
+  [16,17,18,19,20,21,22],
+];
+
+function cellClass(type) {
+  if(type==='s') return 't-start';
+  if(type==='f') return 't-finish';
+  if(type==='r') return 't-reward';
+  if(type==='t') return 't-task';
+  if(type==='p') return 't-punish';
+  return 't-conn';
+}
+function cellIcon(type) {
+  if(type==='s') return '🏠';
+  if(type==='f') return '💍';
+  if(type==='r') return '🌸';
+  if(type==='t') return '💫';
+  if(type==='p') return '🔥';
+  return '';
+}
+
+function renderBoard() {
+  var board = document.getElementById('board');
+  board.innerHTML = '';
+  for(var row=0; row<LAYOUT.length; row++) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'brow';
+    var cols = LAYOUT[row];
+    for(var ci=0; ci<cols.length; ci++) {
+      var idx = cols[ci];
+      var cell = document.createElement('div');
+      if(idx === null) {
+        cell.className = 'bcell t-conn';
+        rowEl.appendChild(cell);
+        continue;
+      }
+      var type = PATH[idx];
+      cell.className = 'bcell ' + cellClass(type);
+
+      var idxSpan = document.createElement('span');
+      idxSpan.className = 'cidx';
+      idxSpan.textContent = idx;
+      cell.appendChild(idxSpan);
+
+      var icoSpan = document.createElement('span');
+      icoSpan.className = 'cico';
+      icoSpan.textContent = cellIcon(type);
+      cell.appendChild(icoSpan);
+
+      // 棋子
+      var here1 = (p1===idx), here2 = (p2===idx);
+      if(here1 || here2) {
+        var ps = document.createElement('span');
+        ps.className = 'cpawn';
+        ps.textContent = (here1&&here2) ? '💕' : (here1 ? '🐰' : '🐺');
+        cell.appendChild(ps);
+      }
+
+      rowEl.appendChild(cell);
+    }
+    board.appendChild(rowEl);
+  }
+}
+
+function updateUI() {
+  document.getElementById('pp1').textContent = p1;
+  document.getElementById('pp2').textContent = p2;
+  document.getElementById('tlbl').textContent = whose===0 ? '🐰 宝宝掷骰' : '🐺 老公掷骰';
+  renderBoard();
+}
+
+function roll() {
+  document.getElementById('dbtn').disabled = true;
+  var faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  var n = 0;
+  var iv = setInterval(function() {
+    document.getElementById('dres').textContent = faces[Math.floor(Math.random()*6)];
+    n++;
+    if(n>=10) {
+      clearInterval(iv);
+      var f = Math.floor(Math.random()*6)+1;
+      document.getElementById('dres').textContent = faces[f-1];
+      setTimeout(function(){ doMove(f); }, 320);
+    }
+  }, 75);
+}
+
+function doMove(steps) {
+  var name = whose===0 ? '宝宝' : '老公';
+  if(whose===0) p1 = Math.min(p1+steps, N);
+  else          p2 = Math.min(p2+steps, N);
+  var pos = whose===0 ? p1 : p2;
+  addLog(name + ' 走' + steps + '步 → 第' + pos + '格');
+  updateUI();
+  setTimeout(function() {
+    if(pos===N) { showWin(name); return; }
+    var t = PATH[pos];
+    if(t==='r') showEvent('r', name);
+    else if(t==='t') showEvent('t', name);
+    else if(t==='p') showEvent('p', name);
+    else nextTurn();
+  }, 380);
+}
+
+function nextTurn() {
+  whose = 1 - whose;
+  document.getElementById('dbtn').disabled = false;
+  updateUI();
+}
+
+function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+
+function showEvent(type, name) {
+  var mbox = document.getElementById('mbox');
+  var badge, ico, txt;
+  if(type==='r') { mbox.className='mbox r'; badge='🌸 奖励'; ico='🎁'; txt=pick(REWARDS); }
+  else if(type==='t') { mbox.className='mbox t'; badge='💫 任务'; ico='✨'; txt=pick(TASKS); }
+  else { mbox.className='mbox p'; badge='🔥 惩罚'; ico='😈'; txt=pick(PUNISH); }
+  document.getElementById('mbadge').textContent = badge;
+  document.getElementById('mico').textContent = ico;
+  document.getElementById('mwho').textContent = name + ' 触发了——';
+  document.getElementById('mtxt').textContent = txt;
+  document.getElementById('mokbtn').textContent = '收到！';
+  document.getElementById('overlay').className = 'overlay on';
+  addLog(name + ' → ' + badge + '：' + txt);
+}
+
+function showWin(name) {
+  var mbox = document.getElementById('mbox');
+  mbox.className = 'mbox w';
+  document.getElementById('mbadge').textContent = '🏆 到达终点';
+  document.getElementById('mico').textContent = '💍';
+  document.getElementById('mwho').textContent = name + ' 率先抵达！';
+  document.getElementById('mtxt').textContent = '赢家可以提任意一个要求，对方必须满足 💕';
+  document.getElementById('mokbtn').textContent = '好的～';
+  document.getElementById('overlay').className = 'overlay on';
+}
+
+function closeModal() {
+  document.getElementById('overlay').className = 'overlay';
+  nextTurn();
+}
+
+function addLog(msg) {
+  var el = document.createElement('div');
+  el.className = 'log-item';
+  el.textContent = msg;
+  var list = document.getElementById('loglist');
+  list.insertBefore(el, list.firstChild);
+}
+
+function restart() {
+  p1=0; p2=0; whose=0;
+  document.getElementById('dbtn').disabled = false;
+  document.getElementById('dres').textContent = '';
+  document.getElementById('loglist').innerHTML = '';
+  document.getElementById('overlay').className = 'overlay';
+  updateUI();
+}
+
+updateUI();
+</script>
+</body>
+</html>
